@@ -1,0 +1,29 @@
+#include <CAN.h>
+
+void setup() {
+  Serial.begin(115200);
+
+  // Initialize the CAN bus at 500 kbps
+  if (!CAN.begin(500E3)) {
+    Serial.println("CAN initialization failed");
+    while (1);
+  }
+  Serial.println("CAN initialized");
+}
+
+void loop() {
+  int value = 123456;  // The integer value to send
+
+  // Send the integer directly using CAN.write
+  if (CAN.beginPacket(0x123, 4)) {  // CAN ID = 0x123, length = 4 bytes (for an int)
+    CAN.write((uint8_t*)&value, sizeof(value));  // Write the integer value to the CAN bus
+    if (CAN.endPacket()) {
+      Serial.print("Message sent: ");
+      Serial.println(value);
+    } else {
+      Serial.println("Error sending message");
+    }
+  }
+
+  delay(1000);  // Wait before sending the next message
+}
