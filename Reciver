@@ -1,0 +1,30 @@
+#include <CAN.h>
+
+void setup() {
+  Serial.begin(115200);
+
+  // Initialize the CAN bus at 500 kbps
+  if (!CAN.begin(500E3)) {
+    Serial.println("CAN initialization failed");
+    while (1);
+  }
+  Serial.println("CAN initialized");
+}
+
+void loop() {
+  // Check if a CAN message is available to read
+  if (CAN.parsePacket()) {
+    if (CAN.packetId() == 0x123 && CAN.packetDlc() == 4) {  // Check for the correct CAN ID and data length (4 bytes for an int)
+      int receivedValue = 0;
+
+      // Read the incoming data (4 bytes for an integer)
+      CAN.readBytes((uint8_t*)&receivedValue, sizeof(receivedValue));
+
+      // Print the received value
+      Serial.print("Received value: ");
+      Serial.println(receivedValue);
+    } else {
+      Serial.println("Received an unknown message or incorrect message length");
+    }
+  }
+}
