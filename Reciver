@@ -1,30 +1,61 @@
-#include <CAN.h>
+// test_calculator.c
+#include <CUnit/CUnit.h>
+#include <CUnit/Basic.h>
+#include "calculator.c"  // Include the file to test
 
-void setup() {
-  Serial.begin(115200);
-
-  // Initialize the CAN bus at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed");
-    while (1);
-  }
-  Serial.println("CAN initialized");
+// Test for the add() function
+void test_add(void) {
+    CU_ASSERT(add(2, 3) == 5);
+    CU_ASSERT(add(-2, -3) == -5);
+    CU_ASSERT(add(0, 0) == 0);
 }
 
-void loop() {
-  // Check if a CAN message is available to read
-  if (CAN.parsePacket()) {
-    if (CAN.packetId() == 0x123 && CAN.packetDlc() == 4) {  // Check for the correct CAN ID and data length (4 bytes for an int)
-      int receivedValue = 0;
+// Test for the subtract() function
+void test_subtract(void) {
+    CU_ASSERT(subtract(5, 3) == 2);
+    CU_ASSERT(subtract(2, 5) == -3);
+}
 
-      // Read the incoming data (4 bytes for an integer)
-      CAN.readBytes((uint8_t*)&receivedValue, sizeof(receivedValue));
+// Test for the multiply() function
+void test_multiply(void) {
+    CU_ASSERT(multiply(2, 3) == 6);
+    CU_ASSERT(multiply(0, 5) == 0);
+}
 
-      // Print the received value
-      Serial.print("Received value: ");
-      Serial.println(receivedValue);
-    } else {
-      Serial.println("Received an unknown message or incorrect message length");
+// Test for the divide() function
+void test_divide(void) {
+    CU_ASSERT(divide(6, 3) == 2);
+    CU_ASSERT(divide(5, 0) == 0);  // Testing division by zero
+}
+
+// Main function to set up and run the tests
+int main() {
+    // Initialize the CUnit test registry
+    if (CUE_SUCCESS != CU_initialize_registry())
+        return CU_get_error();
+
+    // Add a suite to the registry
+    CU_pSuite pSuite = CU_add_suite("CalculatorTestSuite", 0, 0);
+
+    if (NULL == pSuite) {
+        CU_cleanup_registry();
+        return CU_get_error();
     }
-  }
+
+    // Add the tests to the suite
+    if ((NULL == CU_add_test(pSuite, "test of add()", test_add)) ||
+        (NULL == CU_add_test(pSuite, "test of subtract()", test_subtract)) ||
+        (NULL == CU_add_test(pSuite, "test of multiply()", test_multiply)) ||
+        (NULL == CU_add_test(pSuite, "test of divide()", test_divide))) {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+
+    // Run all tests using the basic interface
+    CU_basic_set_mode(CU_BRM_VERBOSE);
+    CU_basic_run_tests();
+
+    // Clean up the registry and return
+    CU_cleanup_registry();
+    return CU_get_error();
 }
