@@ -1,18 +1,69 @@
-Subject: Key Learnings from Soft Skills Session
 
-Dear [Recipient's Name],
+#include <CAN.h>
 
-I wanted to share a few key insights from the soft skills session I recently attended:
+void setup() {
+  Serial.begin(115200);
+  
+  // Initialize CAN at 500 kbps
+  if (!CAN.begin(500E3)) {
+    Serial.println("CAN initialization failed!");
+    while (1);
+  }
+  Serial.println("CAN initialized.");
+}
 
-Company Policies: Understanding the importance of adhering to organizational policies.
-Office Etiquette: Respecting shared spaces, punctuality, and maintaining a professional environment.
-Workplace Conduct: Interacting with colleagues in a respectful and productive manner.
-Communication: Clear, professional verbal and written communication.
-These takeaways will help me contribute to a more positive and efficient work environment.
+void loop() {
+  // Check if a new CAN message is available
+  if (CAN.available()) {
+    CANMessage receivedMsg;
+    CAN.read(receivedMsg);  // Read the CAN message
+    
+    // ESP32-1 will handle byte 0 (adjust for other ESP32s)
+    int dataFromESP1 = receivedMsg.data[0];  // Extract byte 0
+    Serial.print("Data from ESP32-1 (Byte 0): ");
+    Serial.println(dataFromESP1);
+  }
 
-Best regards,
-[Your Name]
-[Your Position]
+  delay(1000);  // Adjust the delay to control message reading frequency
+}
+
+
+
+
+
+.....
+
+#include <CAN.h>
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Initialize CAN at 500 kbps
+  if (!CAN.begin(500E3)) {
+    Serial.println("CAN initialization failed!");
+    while (1);
+  }
+  Serial.println("CAN initialized.");
+}
+
+void loop() {
+  // Prepare the CAN message to send
+  CANMessage msgToSend;
+  msgToSend.id = 0x100;   // Use a common CAN ID for all ESP32s
+  msgToSend.len = 8;      // 8-byte CAN frame
+  
+  // ESP32-1 is responsible for byte 0
+  msgToSend.data[0] = 42;  // Some data from ESP32-1
+  
+  // Leave other bytes untouched or initialize to 0
+  // Other ESP32s will fill their bytes
+  
+  // Send the CAN message
+  CAN.send(msgToSend);
+  
+  // Delay before sending again (adjust for your needs)
+  delay(1000);
+}
 
 
 
