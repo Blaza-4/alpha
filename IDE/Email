@@ -1,125 +1,87 @@
+#include <CAN.h>
 
+// Dummy function to simulate reading a temperature sensor
+byte readTemperature() {
+  // Replace this with actual temperature reading code
+  return random(0, 100); // Random temperature value between 0-99
+}
+
+void setup() {
+  Serial.begin(115200);
+  // Initialize CAN at 500 kbps
+  if (!CAN.begin(500E3)) {
+    Serial.println("Starting CAN failed!");
+    while (1);
+  }
+  Serial.println("CAN started on Board 1.");
+}
+
+void loop() {
+  // Create a CAN message
+  CAN.beginPacket(0x01); // CAN ID for Board 1
+  CAN.write(readTemperature()); // Read and write temperature to byte 1
+  CAN.write(0x00);              // Placeholder for byte 2
+  CAN.write(0x00);              // Placeholder for byte 3
+  CAN.write(0x00);              // Placeholder for byte 4
+  CAN.write(0x00);              // Placeholder for byte 5
+  CAN.write(0x00);              // Placeholder for byte 6
+  CAN.write(0x00);              // Placeholder for byte 7
+  CAN.write(0x00);              // Placeholder for byte 8
+  CAN.endPacket();              // Send the packet
+
+  Serial.println("Temperature value sent from Board 1.");
+  delay(1000);                  // Wait before sending the next message
+}
 
 
 
 
 #include <CAN.h>
 
-void setup() {
-  CAN.setPins(19,18);
-  Serial.begin(115200);
+// Dummy function to simulate reading voltage from a potentiometer
+byte readVoltage() {
+  // Replace this with actual potentiometer reading code
+  return random(0, 255); // Random voltage value between 0-255
+}
 
+void setup() {
+  Serial.begin(115200);
   // Initialize CAN at 500 kbps
   if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed!");
+    Serial.println("Starting CAN failed!");
     while (1);
   }
-  Serial.println("CAN initialized.");
+  Serial.println("CAN started on Board 2.");
 }
-int i=10,j=21,k=30;
+
 void loop() {
-  i++;
-  j++;
-  k++;
-  // Start the CAN packet (CAN ID = 0x100)
-  if (CAN.beginPacket(0x100)) { // Start a packet with the given CAN ID
+  // Check if data is available
+  if (CAN.parsePacket()) {
+    Serial.println("Message received on Board 2.");
 
-    // ESP32-1 will write its data in byte 0
-    CAN.write(42); 
-    CAN.write(i);
-        CAN.write(j);
-            CAN.write(k);
-
-        // Send byte 0 (only write your designated byte)
-    
-    // Fill the remaining bytes with 0 or other data if needed
-    for (int i = 4; i < 8; i++) {
-      CAN.write(0);    // Remaining bytes set to 0
+    // Create an array to store the bytes
+    byte message[8];
+    for (int i = 0; i < 8; i++) {
+      message[i] = CAN.read(); // Read all bytes
     }
 
-    // End the packet and send the message
+    // Print received bytes
+    Serial.print("Byte 1 (Temperature): ");
+    Serial.println(message[0]);
+    
+    // Read and write voltage to byte 2
+    message[1] = readVoltage(); 
+
+    // Forward the message with updated byte 2
+    CAN.beginPacket(0x01); // Forward to the same CAN ID
+    for (int i = 0; i < 8; i++) {
+      CAN.write(message[i]); // Write all bytes to forward
+    }
     CAN.endPacket();
-    
-    Serial.println("CAN message sent!");
-  } else {
-    Serial.println("Error sending CAN message!");
+
+    Serial.println("Voltage value sent from Board 2.");
   }
-
-  delay(100);
-  if (CAN.parsePacket()) {
-    Serial.print("Received packet with ID: ");
-    Serial.println(CAN.packetId(), HEX);  // Print the CAN ID
-    
-    // Read all the 8 bytes of the received CAN frame
-    while (CAN.available()) {
-      byte receivedByte = CAN.read();      // Read each byte
-      Serial.print(receivedByte);
-      Serial.print(" ");
-    }  // Adjust the delay for your use case
 }
-}
-
-
-
-
-
-
-
-
-
-#include <CAN.h>
-
-void setup() {
-  Serial.begin(115200);
-  CAN.setPins(19,18);
-
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed!");
-    while (1);
-  }
-  Serial.println("CAN initialized.");
-}
-int i=0,j=0,k=0;
-void loop() {
-  i++;
-  k++;
-  j++;
-  // Check if a new CAN message is available
-  if (CAN.parsePacket()) {
-    Serial.print("Received packet with ID: ");
-    Serial.println(CAN.packetId(), HEX);  // Print the CAN ID
-    
-    // Read all the 8 bytes of the received CAN frame
-    while (CAN.available()) {
-      byte receivedByte = CAN.read();      // Read each byte
-      Serial.print(receivedByte);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }
-  delay(100);
-  if (CAN.beginPacket(0x100)) {
-      //CAN.write(42); 
-       CAN.write(256);
-        CAN.write(j);
-            CAN.write(k); 
-            
-              CAN.write(j);
-              CAN.write(i);
-              CAN.write(k); 
-            
-              CAN.write(j);
-              CAN.write(i);
-            
-  }
-   CAN.endPacket();
-
-}
-
-
-
-
 
 
 
