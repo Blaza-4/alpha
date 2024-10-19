@@ -1,128 +1,4 @@
 
-#include <CAN.h>
-
-void setup() {
-  Serial.begin(115200);
-  
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed!");
-    while (1);
-  }
-  Serial.println("CAN initialized.");
-}
-
-void loop() {
-  // Check if a new CAN message is available
-  if (CAN.available()) {
-    CANMessage receivedMsg;
-    CAN.read(receivedMsg);  // Read the CAN message
-    
-    // ESP32-1 will handle byte 0 (adjust for other ESP32s)
-    int dataFromESP1 = receivedMsg.data[0];  // Extract byte 0
-    Serial.print("Data from ESP32-1 (Byte 0): ");
-    Serial.println(dataFromESP1);
-  }
-
-  delay(1000);  // Adjust the delay to control message reading frequency
-}
-
-
-
-
-
-.....
-
-#include <CAN.h>
-
-void setup() {
-  Serial.begin(115200);
-  
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed!");
-    while (1);
-  }
-  Serial.println("CAN initialized.");
-}
-
-void loop() {
-  // Prepare the CAN message to send
-  CANMessage msgToSend;
-  msgToSend.id = 0x100;   // Use a common CAN ID for all ESP32s
-  msgToSend.len = 8;      // 8-byte CAN frame
-  
-  // ESP32-1 is responsible for byte 0
-  msgToSend.data[0] = 42;  // Some data from ESP32-1
-  
-  // Leave other bytes untouched or initialize to 0
-  // Other ESP32s will fill their bytes
-  
-  // Send the CAN message
-  CAN.send(msgToSe
-
-
-
-#include <CAN.h>
-
-void setup() {
-  Serial.begin(115200);
-  
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed!");
-    while (1);
-  }
-  Serial.println("CAN initialized.");
-}
-
-void loop() {
-  // Prepare an 8-byte array for the CAN message
-  byte data[8] = {0}; // Initialize all bytes to 0
-  
-  // ESP32-1 will fill byte 0 with its data
-  data[0] = 42; // Example data for ESP32-1
-  
-  // Send the 8-byte message with a CAN ID of 0x100
-  if (CAN.write(0x100, data, 8)) {
-    Serial.println("Message sent");
-  } else {
-    Serial.println("Error sending message");
-  }
-  
-  delay(1000); // Adjust the delay to control message sending rate
-}
-
-
-
-#include <CAN.h>
-
-void setup() {
-  Serial.begin(115200);
-  
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("CAN initialization failed!");
-    while (1);
-  }
-  Serial.println("CAN initialized.");
-}
-
-void loop() {
-  // Check if a new CAN message is available
-  if (CAN.parsePacket()) {
-    Serial.print("Received packet with ID: ");
-    Serial.println(CAN.packetId(), HEX);  // Print CAN ID
-    
-    // Print all 8 bytes of data in the received CAN frame
-    while (CAN.available()) {
-      byte receivedByte = CAN.read();
-      Serial.print(receivedByte);
-      Serial.print(" ");
-    }
-    Serial.println();
-
-
 
 
 
@@ -130,6 +6,7 @@ void loop() {
 #include <CAN.h>
 
 void setup() {
+  CAN.setPins(19,18);
   Serial.begin(115200);
 
   // Initialize CAN at 500 kbps
@@ -139,16 +16,24 @@ void setup() {
   }
   Serial.println("CAN initialized.");
 }
-
+int i=10,j=21,k=30;
 void loop() {
+  i++;
+  j++;
+  k++;
   // Start the CAN packet (CAN ID = 0x100)
   if (CAN.beginPacket(0x100)) { // Start a packet with the given CAN ID
 
     // ESP32-1 will write its data in byte 0
-    CAN.write(42);     // Send byte 0 (only write your designated byte)
+    CAN.write(42); 
+    CAN.write(i);
+        CAN.write(j);
+            CAN.write(k);
+
+        // Send byte 0 (only write your designated byte)
     
     // Fill the remaining bytes with 0 or other data if needed
-    for (int i = 1; i < 8; i++) {
+    for (int i = 4; i < 8; i++) {
       CAN.write(0);    // Remaining bytes set to 0
     }
 
@@ -160,14 +45,23 @@ void loop() {
     Serial.println("Error sending CAN message!");
   }
 
-  delay(1000);  // Adjust the delay for your use case
+  delay(100);
+  if (CAN.parsePacket()) {
+    Serial.print("Received packet with ID: ");
+    Serial.println(CAN.packetId(), HEX);  // Print the CAN ID
+    
+    // Read all the 8 bytes of the received CAN frame
+    while (CAN.available()) {
+      byte receivedByte = CAN.read();      // Read each byte
+      Serial.print(receivedByte);
+      Serial.print(" ");
+    }  // Adjust the delay for your use case
+}
 }
 
 
 
 
-
-}
 
 
 
@@ -177,6 +71,7 @@ void loop() {
 
 void setup() {
   Serial.begin(115200);
+  CAN.setPins(19,18);
 
   // Initialize CAN at 500 kbps
   if (!CAN.begin(500E3)) {
@@ -185,8 +80,11 @@ void setup() {
   }
   Serial.println("CAN initialized.");
 }
-
+int i=0,j=0,k=0;
 void loop() {
+  i++;
+  k++;
+  j++;
   // Check if a new CAN message is available
   if (CAN.parsePacket()) {
     Serial.print("Received packet with ID: ");
@@ -200,12 +98,24 @@ void loop() {
     }
     Serial.println();
   }
+  delay(100);
+  if (CAN.beginPacket(0x100)) {
+      //CAN.write(42); 
+       CAN.write(256);
+        CAN.write(j);
+            CAN.write(k); 
+            
+              CAN.write(j);
+              CAN.write(i);
+              CAN.write(k); 
+            
+              CAN.write(j);
+              CAN.write(i);
+            
+  }
+   CAN.endPacket();
+
 }
-
-
-
-
-
 
 
 
