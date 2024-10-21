@@ -1,36 +1,95 @@
 #include <CAN.h>
 
-// Dummy function to simulate reading a temperature sensor
-byte readTemperature() {
-  // Replace this with actual temperature reading code
-  return random(0, 100); // Random temperature value between 0-99
-}
-
 void setup() {
-  Serial.begin(115200);
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("Starting CAN failed!");
-    while (1);
-  }
-  Serial.println("CAN started on Board 1.");
+    Serial.begin(115200);
+    
+    // Initialize CAN at 500 kbps
+    if (!CAN.begin(500E3)) {
+        Serial.println("CAN initialization failed!");
+        while (1);
+    }
+    
+    Serial.println("CAN started on Board 1.");
 }
 
 void loop() {
-  // Create a CAN message
-  CAN.beginPacket(0x01); // CAN ID for Board 1
-  CAN.write(readTemperature()); // Read and write temperature to byte 1
-  CAN.write(0x00);              // Placeholder for byte 2
-  CAN.write(0x00);              // Placeholder for byte 3
-  CAN.write(0x00);              // Placeholder for byte 4
-  CAN.write(0x00);              // Placeholder for byte 5
-  CAN.write(0x00);              // Placeholder for byte 6
-  CAN.write(0x00);              // Placeholder for byte 7
-  CAN.write(0x00);              // Placeholder for byte 8
-  CAN.endPacket();              // Send the packet
+    int temperature = readTemperature(); // Get the temperature value (dummy function)
 
-  Serial.println("Temperature value sent from Board 1.");
-  delay(1000);                  // Wait before sending the next message
+    // Create a new CAN frame with temperature in the first byte
+    byte message[8] = {0};
+    message[0] = (temperature >> 8) & 0xFF;  // High byte of temperature
+    message[1] = temperature & 0xFF;         // Low byte of temperature
+
+    // Send the frame to the CAN bus
+    CAN.beginPacket(0x01);  // CAN ID 0x01
+    for (int i = 0; i < 8; i++) {
+        CAN.write(message[i]);
+    }
+    CAN.endPacket();
+
+    Serial.println("Temperature value sent from Board 1.");
+
+    delay(500);  // Add some delay to avoid spamming the bus
+}
+
+// Dummy function to simulate reading temperature
+int readTemperature() {
+    return random(0, 65535); // Simulated temperature value (16-bit)
+}
+
+
+
+#include <CAN.h>
+
+void setup() {
+    Serial.begin(115200);
+    
+    if (!CAN.begin(500E3)) {
+        Serial.println("CAN initialization failed!");
+        while (1);
+    }
+    
+    Serial.println("CAN started on Board 2.");
+}
+
+void loop() {
+    if (CAN.parsePacket()) {
+        Serial.println("CAN packet received on Board 2.");
+
+        // Store received message
+        byte message[8] = {0};
+        for (int i = 0; i < 8; i++) {
+            if (CAN.available()) {
+                message[i] = CAN.read();
+            }
+        }
+
+        // Extract and print the temperature from Board 1
+        int temperature = (message[0] << 8) | message[1]; // Combine the high and low bytes
+        Serial.print("Temperature received: ");
+        Serial.println(temperature);
+
+        // Add voltage reading to byte 2 and 3
+        int voltage = readVoltage();
+        message[2] = (voltage >> 8) & 0xFF;  // High byte of voltage
+        message[3] = voltage & 0xFF;         // Low byte of voltage
+
+        // Send the modified message back to the CAN bus
+        CAN.beginPacket(0x01);  // Same CAN ID
+        for (int i = 0; i < 8; i++) {
+            CAN.write(message[i]);
+        }
+        CAN.endPacket();
+
+        Serial.println("Updated CAN frame sent from Board 2.");
+    }
+
+    delay(500);  // Add some delay to avoid spamming the bus
+}
+
+// Dummy function to simulate reading voltage
+int readVoltage() {
+    return random(0, 65535); // Simulated voltage value (16-bit)
 }
 
 
@@ -38,50 +97,61 @@ void loop() {
 
 #include <CAN.h>
 
-// Dummy function to simulate reading voltage from a potentiometer
-byte readVoltage() {
-  // Replace this with actual potentiometer reading code
-  return random(0, 255); // Random voltage value between 0-255
-}
-
 void setup() {
-  Serial.begin(115200);
-  // Initialize CAN at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("Starting CAN failed!");
-    while (1);
-  }
-  Serial.println("CAN started on Board 2.");
+    Serial.begin(115200);
+
+    if (!CAN.begin(500E3)) {
+        Serial.println("CAN initialization failed!");
+        while (1);
+    }
+
+    Serial.println("CAN started on Board 3.");
 }
 
 void loop() {
-  // Check if data is available
-  if (CAN.parsePacket()) {
-    Serial.println("Message received on Board 2.");
+    if (CAN.parsePacket()) {
+        Serial.println("CAN packet received on Board 3.");
 
-    // Create an array to store the bytes
-    byte message[8];
-    for (int i = 0; i < 8; i++) {
-      message[i] = CAN.read(); // Read all bytes
+        // Store received message
+        byte message[8] = {0};
+        for (int i = 0; i < 8; i++) {
+            if (CAN.available()) {
+                message[i] = CAN.read();
+            }
+        }
+
+        // Extract and print the values from the previous boards
+        int temperature = (message[0] << 8) | message[1];
+        int voltage = (message[2] << 8) | message[3];
+        Serial.print("Temperature received: ");
+        Serial.println(temperature);
+        Serial.print("Voltage received: ");
+        Serial.println(voltage);
+
+        // Add another value (e.g., current) to byte 4 and 5
+        int current = readCurrent();
+        message[4] = (current >> 8) & 0xFF;  // High byte of current
+        message[5] = current & 0xFF;         // Low byte of current
+
+        // Send the modified message back to the CAN bus
+        CAN.beginPacket(0x01);  // Same CAN ID
+        for (int i = 0; i < 8; i++) {
+            CAN.write(message[i]);
+        }
+        CAN.endPacket();
+
+        Serial.println("Updated CAN frame sent from Board 3.");
     }
 
-    // Print received bytes
-    Serial.print("Byte 1 (Temperature): ");
-    Serial.println(message[0]);
-    
-    // Read and write voltage to byte 2
-    message[1] = readVoltage(); 
-
-    // Forward the message with updated byte 2
-    CAN.beginPacket(0x01); // Forward to the same CAN ID
-    for (int i = 0; i < 8; i++) {
-      CAN.write(message[i]); // Write all bytes to forward
-    }
-    CAN.endPacket();
-
-    Serial.println("Voltage value sent from Board 2.");
-  }
+    delay(500);  // Add some delay to avoid spamming the bus
 }
+
+// Dummy function to simulate reading current
+int readCurrent() {
+    return random(0, 65535); // Simulated current value (16-bit)
+}
+
+
 
 
 
