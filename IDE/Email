@@ -1,165 +1,150 @@
-#define CAN_FRAME_ID 0x01   // Frame ID for the shared data
-#define BOARD_1_ID 0x01     // Board 1 writes to byte 0 and 1
-#define BOARD_2_ID 0x02     // Board 2 writes to byte 2 and 3
-#define BOARD_3_ID 0x03     // Board 3 writes to byte 4 and 5
+import androidx.appcompat.app.AppCompatActivity;
+import android.os.Bundle;
+import android.os.StrictMode;
+import android.util.Log;
+import android.widget.TextView;
 
-#include <CAN.h>
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
-void setup() {
-    Serial.begin(115200);
+public class MainActivity extends AppCompatActivity {
+    private static final String ESP32_URL = "http://YOUR_ESP32_IP/";
 
-    // Initialize CAN at 500 kbps
-    if (!CAN.begin(500E3)) {
-        Serial.println("CAN initialization failed!");
-        while (1);
-    }
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-    Serial.println("CAN started on Board 1.");
-}
+        TextView textView = findViewById(R.id.textView);
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
 
-void loop() {
-    // Board 1 initiates by sending its temperature value
-    int temperature = readTemperature();  // Dummy temperature function
-
-    // Create CAN frame
-    byte message[8] = {0};
-    message[0] = (temperature >> 8) & 0xFF;  // High byte
-    message[1] = temperature & 0xFF;         // Low byte
-
-    // Send the frame on the bus
-    CAN.beginPacket(CAN_FRAME_ID);  // Shared CAN frame ID
-    for (int i = 0; i < 8; i++) {
-        CAN.write(message[i]);
-    }
-    CAN.endPacket();
-
-    Serial.println("Temperature sent from Board 1.");
-
-    delay(500);  // Delay to avoid spamming the bus
-}
-
-// Dummy temperature reading function
-int readTemperature() {
-    return random(0, 65535); // Simulated temperature value
-}
-
-2
-#include <CAN.h>
-
-void setup() {
-    Serial.begin(115200);
-
-    if (!CAN.begin(500E3)) {
-        Serial.println("CAN initialization failed!");
-        while (1);
-    }
-
-    Serial.println("CAN started on Board 2.");
-}
-
-void loop() {
-    if (CAN.parsePacket()) {
-        if (CAN.packetId() == CAN_FRAME_ID) {  // Check the shared frame ID
-            Serial.println("Frame received on Board 2.");
-
-            // Read the frame and store the message
-            byte message[8] = {0};
-            for (int i = 0; i < 8; i++) {
-                if (CAN.available()) {
-                    message[i] = CAN.read();
+        new Thread(() -> {
+            try {
+                URL url = new URL(ESP32_URL);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
                 }
+                reader.close();
+                runOnUiThread(() -> textView.setText(response.toString()));
+            } catch (Exception e) {
+                Log.e("MainActivity", "Error connecting to ESP32", e);
             }
+        }).start();
+    }
+}
 
-            // Print the temperature value from Board 1
-            int temperature = (message[0] << 8) | message[1];
-            Serial.print("Temperature received: ");
-            Serial.println(temperature);
 
-            // Add voltage reading to byte 2 and 3
-            int voltage = readVoltage();  // Dummy voltage function
-            message[2] = (voltage >> 8) & 0xFF;  // High byte
-            message[3] = voltage & 0xFF;         // Low byte
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
 
-            // Wait until CAN bus is free and send the modified message
-            CAN.beginPacket(CAN_FRAME_ID);
-            for (int i = 0; i < 8; i++) {
-                CAN.write(message[i]);
-            }
-            CAN.endPacket();
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Waiting for HTTP data..."
+        android:textSize="18sp" />
+</LinearLayout>
 
-            Serial.println("Updated frame sent from Board 2.");
+
+
+
+
+
+#include <BluetoothSerial.h>
+
+BluetoothSerial SerialBT;
+
+void setup() {
+    Serial.begin(115200);
+    SerialBT.begin("ESP32_BT"); // Name of the ESP32 Bluetooth
+    Serial.println("Bluetooth started. Waiting for clients...");
+}
+
+void loop() {
+    if (SerialBT.hasClient()) {
+        SerialBT.println("Hello from ESP32!");
+        delay(1000); // Send a message every second
+    }
+}
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import androidx.appcompat.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.TextView;
+
+import java.io.InputStream;
+import java.util.UUID;
+
+public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
+    private static final String ESP32_MAC = "XX:XX:XX:XX:XX:XX"; // Replace with ESP32 MAC Address
+    private static final UUID ESP32_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
+    private BluetoothSocket socket;
+    private BluetoothAdapter bluetoothAdapter;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        TextView textView = findViewById(R.id.textView);
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+            new Thread(() -> {
+                try {
+                    BluetoothDevice device = bluetoothAdapter.getRemoteDevice(ESP32_MAC);
+                    socket = device.createRfcommSocketToServiceRecord(ESP32_UUID);
+                    socket.connect();
+
+                    InputStream inputStream = socket.getInputStream();
+                    byte[] buffer = new byte[1024];
+                    int bytes;
+
+                    while ((bytes = inputStream.read(buffer)) > 0) {
+                        String message = new String(buffer, 0, bytes);
+                        runOnUiThread(() -> textView.setText(message));
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Bluetooth connection failed", e);
+                }
+            }).start();
         }
     }
-
-    delay(500);  // Avoid spamming the bus
 }
 
-// Dummy voltage reading function
-int readVoltage() {
-    return random(0, 65535);  // Simulated voltage value
-}
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
 
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Waiting for Bluetooth data..."
+        android:textSize="18sp" />
+</LinearLayout>
+<uses-permission android:name="android.permission.BLUETOOTH" />
+<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-
-3
-
-#include <CAN.h>
-
-void setup() {
-    Serial.begin(115200);
-
-    if (!CAN.begin(500E3)) {
-        Serial.println("CAN initialization failed!");
-        while (1);
-    }
-
-    Serial.println("CAN started on Board 3.");
-}
-
-void loop() {
-    if (CAN.parsePacket()) {
-        if (CAN.packetId() == CAN_FRAME_ID) {  // Check the shared frame ID
-            Serial.println("Frame received on Board 3.");
-
-            // Read the frame and store the message
-            byte message[8] = {0};
-            for (int i = 0; i < 8; i++) {
-                if (CAN.available()) {
-                    message[i] = CAN.read();
-                }
-            }
-
-            // Print the temperature and voltage values from previous boards
-            int temperature = (message[0] << 8) | message[1];
-            int voltage = (message[2] << 8) | message[3];
-            Serial.print("Temperature: ");
-            Serial.println(temperature);
-            Serial.print("Voltage: ");
-            Serial.println(voltage);
-
-            // Add current reading to byte 4 and 5
-            int current = readCurrent();  // Dummy current function
-            message[4] = (current >> 8) & 0xFF;  // High byte
-            message[5] = current & 0xFF;         // Low byte
-
-            // Wait until CAN bus is free and send the modified message
-            CAN.beginPacket(CAN_FRAME_ID);
-            for (int i = 0; i < 8; i++) {
-                CAN.write(message[i]);
-            }
-            CAN.endPacket();
-
-            Serial.println("Updated frame sent from Board 3.");
-        }
-    }
-
-    delay(500);  // Avoid spamming the bus
-}
-
-// Dummy current reading function
-int readCurrent() {
-    return random(0, 65535);  // Simulated current value
-}
 
 
 
